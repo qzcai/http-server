@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 )
 
 func init() {
@@ -38,13 +42,38 @@ func WithLogging(handler http.HandlerFunc) http.Handler {
 
 func main() {
 	log.Println("Starting http server...")
-	http.Handle("/", WithLogging(rootHandler))
-	http.Handle("/notfound", WithLogging(http.NotFound))
-	http.Handle("/healthz", WithLogging(healthz))
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Fatal(err)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", WithLogging(rootHandler))
+	mux.Handle("/notfound", WithLogging(http.NotFound))
+	mux.Handle("/healthz", WithLogging(healthz))
+
+	srv := &http.Server{
+		Addr: ":8080",
+		Handler: mux,
 	}
+
+	// initialize the server in goroutine so that
+	// it won't block the graceful shutdown handling logic
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// wait for interrupt signal to gracefully shut down the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+
+	log.Println("Server exiting")
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
