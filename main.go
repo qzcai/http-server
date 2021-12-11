@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/qzcai/http-server/metrics"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -42,14 +45,16 @@ func WithLogging(handler http.HandlerFunc) http.Handler {
 
 func main() {
 	log.Println("Starting http server...")
+	metrics.Register()
 
 	mux := http.NewServeMux()
 	mux.Handle("/", WithLogging(rootHandler))
 	mux.Handle("/notfound", WithLogging(http.NotFound))
 	mux.Handle("/healthz", WithLogging(healthz))
+	mux.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
-		Addr: ":8080",
+		Addr:    ":8080",
 		Handler: mux,
 	}
 
@@ -81,6 +86,12 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
+	timer := metrics.NewExecutionTimer()
+	defer timer.ObserveTotal()
+
+	delay := randInt(10, 10000)
+	time.Sleep(time.Millisecond * time.Duration(delay))
+
 	// copy request header to response header
 	for k, v := range r.Header {
 		w.Header().Add(k, strings.Join(v, ","))
@@ -102,4 +113,9 @@ func GetIP(r *http.Request) string {
 	}
 
 	return r.RemoteAddr
+}
+
+func randInt(min int, max int) int {
+	rand.Seed(time.Now().UnixNano())
+	return min + rand.Intn(max-min)
 }
