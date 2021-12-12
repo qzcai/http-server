@@ -9,12 +9,18 @@ spec:
       app: http-server
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: http-metrics
       labels:
         app: http-server
     spec:
       containers:
         - name: http-server
-          image: qzcai/http-server:v1.0
+          image: qzcai/http-server:v2.0
+          ports:
+            - containerPort: 8080
+              name: http-metrics
           env:
             - name: header1
               valueFrom:
