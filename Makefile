@@ -1,4 +1,4 @@
-tag=v2.0
+tag=v3.0
 
 build:
 	echo "building http-server container"

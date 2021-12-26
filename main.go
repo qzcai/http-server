@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/qzcai/http-server/metrics"
 	"io"
@@ -49,6 +50,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", WithLogging(rootHandler))
+	mux.Handle("/tracing", WithLogging(tracing))
 	mux.Handle("/notfound", WithLogging(http.NotFound))
 	mux.Handle("/healthz", WithLogging(healthz))
 	mux.Handle("/metrics", promhttp.Handler())
@@ -72,7 +74,7 @@ func main() {
 	<-quit
 	log.Println("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown: ", err)
@@ -89,7 +91,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	timer := metrics.NewExecutionTimer()
 	defer timer.ObserveTotal()
 
-	delay := randInt(10, 10000)
+	delay := randInt(10, 2000)
 	time.Sleep(time.Millisecond * time.Duration(delay))
 
 	// copy request header to response header
@@ -104,6 +106,29 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	body, _ := json.Marshal(r.Header)
 	_, _ = w.Write(body)
+}
+
+func tracing(w http.ResponseWriter, r *http.Request) {
+	req, err := http.NewRequest("GET", "http://service2", nil)
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
+	lowerCaseHeader := make(http.Header)
+	for key, value := range r.Header {
+		lowerCaseHeader[strings.ToLower(key)] = value
+	}
+	req.Header = lowerCaseHeader
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		log.Println("HTTP get failed with error: ", "error", err)
+	} else {
+		log.Println("HTTP get succeeded")
+	}
+	if resp != nil {
+		resp.Write(w)
+	}
 }
 
 func GetIP(r *http.Request) string {
