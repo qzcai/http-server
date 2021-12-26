@@ -8,3 +8,12 @@
 ```shell
 kubectl apply -f deploy.yaml
 ```
+
+# istio部署
+```shell
+cd istio/
+kubectl create ns demo
+kubectl apply -f httpserver.yaml -n demo
+kubectl apply -f istio-specs.yaml -n demo
+kubectl apply -f secret.yaml -n istio-system
+```
