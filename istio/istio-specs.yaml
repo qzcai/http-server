@@ -9,7 +9,22 @@ spec:
     - cncamp.com
   http:
     - match:
-        - port: 443
+        - uri:
+            prefix: "/nginx"
+      rewrite:
+        uri: "/"
+      route:
+        - destination:
+            host: nginx.demo.svc.cluster.local
+            port:
+              number: 80
+    - match:
+        - uri:
+            prefix: "/service/"
+        - uri:
+            prefix: "/service"
+      rewrite:
+        uri: "/"
       route:
         - destination:
             host: http-server-service.demo.svc.cluster.local

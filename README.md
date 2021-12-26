@@ -13,6 +13,7 @@ kubectl apply -f deploy.yaml
 ```shell
 cd istio/
 kubectl create ns demo
+kubectl apply -f nginx.yaml -n demo
 kubectl apply -f httpserver.yaml -n demo
 kubectl apply -f istio-specs.yaml -n demo
 kubectl apply -f secret.yaml -n istio-system
